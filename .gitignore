@@ -1,0 +1,60 @@
+# Build and Object Files
+bin/
+obj/
+*.o
+*.a
+*.so
+*.dylib
+
+# Visual Studio
+.vs/
+.vscode/
+*.sln.iml
+*.user
+*.suo
+*.ncb
+*.VC.db
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# Visual Studio cache/options
+.vs/
+
+# Local user-specific settings
+appsettings.local.json
+appsettings.*.json
+!appsettings.json
+
+# Environment variables
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Test Results
+TestResults/
+
+# Package Files
+*.nupkg
