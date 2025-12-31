@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ResumeExtractorAPI.Models")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+23e8d6647040479093b230ce9905576ef4a7612e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3eef5597e298a90db579108f705559505226a149")]
 [assembly: System.Reflection.AssemblyProductAttribute("ResumeExtractorAPI.Models")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ResumeExtractorAPI.Models")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

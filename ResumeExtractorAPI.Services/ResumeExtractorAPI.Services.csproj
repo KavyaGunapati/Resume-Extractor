@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ResumeExtractorAPI.Interfaces\ResumeExtractorAPI.Interfaces.csproj" />
+    <ProjectReference Include="..\ResumeExtractorAPI.Models\ResumeExtractorAPI.Models.csproj" />
+    <ProjectReference Include="..\ResumeExtractorAPI.Managers\ResumeExtractorAPI.Managers.csproj" />
   </ItemGroup>
 
   <ItemGroup>

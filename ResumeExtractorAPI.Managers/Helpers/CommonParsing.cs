@@ -4,27 +4,33 @@ namespace ResumeExtractorAPI.Managers.Helpers
 {
     public static class CommonParsing
     {
-        private static readonly Regex CompanyRegex=new(@"\b([A-Za-z][A-Za-z&\.\s]+(?:Inc|LLC|Ltd|Corporation|Corp|Company|Co|Technologies|Systems|Solutions|Enterprises|Group|Holdings|International|Global))\b",
-            RegexOptions.IgnoreCase|RegexOptions.Compiled);
-        private static readonly Regex PositionRegex=new(@"\b([A-Za-z][A-Za-z&\.\s]+(?:Engineer|Developer|Manager|Director|Analyst|Consultant|Specialist|Coordinator|Administrator|Architect|Designer|Scientist|Technician|Supervisor|Executive|Officer|Lead|Head|Intern))\b",
-            RegexOptions.IgnoreCase|RegexOptions.Compiled);
-        private static readonly Regex DateRangeRegex=new(@"\b(?<start>(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|\d{1,2}[/\-]\d{2,4}))\s*(?:-|–|—|to)\s*(?<end>(?:Present|Current|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|\d{1,2}[/\-]\d{2,4}))\b",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private static readonly Regex SingleDateRegex=new(@"\b(?<date>(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|\d{1,2}[/\-]\d{2,4}))\b",
+        private static readonly Regex DateRangeRegex=new(@"\b(?<start>(?:Jan|Feb|
+        Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|
+        March|April|May|June|July|August|September|October|November|December|
+        \d{1,2}[/\-]\d{2,4}))\s*(?:-|–|—|to)\s*(?<end>(?:Present|Current|Jan|Feb
+        |Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|
+        March|April|May|June|July|August|September|October|November|December
+        |\d{1,2}[/\-]\d{2,4}))\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex SingleDateRegex=new(@"\b(?<date>(?:Jan|Feb|Mar
+        |Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|
+        February|March|April|May|June|July|August|September|
+        October|November|December|\d{1,2}[/\-]\d{2,4}))\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
         public static (string? start, string? end) ExtractDates(string input)
         {
-            var daterange=DateRangeRegex.Match(input?.Trim()??string.Empty);
-            if (daterange.Success)
+            var dateRangeMatch=DateRangeRegex.Match(input??string.Empty);
+            if (dateRangeMatch.Success)
             {
-                var from=daterange.Groups["start"].Value;
-                var to=daterange.Groups["end"].Value;
-                return (from,to);
+                var start=dateRangeMatch.Groups["start"].Value.Trim();
+                var end=dateRangeMatch.Groups["end"].Value.Trim();
+                return (start,end);
             }
-            var singleDate=SingleDateRegex.Matches(input??string.Empty).Select(m=>m.Groups["date"].Value).ToList();
-            if(singleDate.Count==1) return (singleDate[0], null);
-            if(singleDate.Count>=2) return(singleDate[0],singleDate[1]);
+            var singleDateMatch=SingleDateRegex.Matches(input??string.Empty)
+            .Select(m=>m.Groups["date"].Value.Trim()).ToList();
+            if(singleDateMatch.Count==1) return (singleDateMatch[0],null);
+            if(singleDateMatch.Count>=2) return (singleDateMatch[0],singleDateMatch[1]);
             return (null,null);
+            
         }
         public static bool IsCurrentEnd(string? end)
         {
@@ -34,19 +40,6 @@ namespace ResumeExtractorAPI.Managers.Helpers
             ||end.Equals("To Date",StringComparison.OrdinalIgnoreCase)
             ||end.Equals("Now",StringComparison.OrdinalIgnoreCase));
 
-        }
-        
-        public static string? DetectCompany(string input)
-        {
-            var match=CompanyRegex.Match(input??string.Empty);
-            if(match.Success) return match.Groups[1].Value.Trim();
-            return null;
-        }
-        public static string? DetectPosition(string input)
-        {
-            var match=PositionRegex.Match(input??string.Empty);
-            if(match.Success) return match.Groups[1].Value.Trim();
-            return null;
         }
         // header check
         public static bool IsLikelyHeader(string text)

@@ -12,16 +12,36 @@ namespace ResumeExtractorAPI.Managers
     public class PdfExtractionManager : IPdfExtractionManager
     {
         private readonly int _minlen;
-        private readonly DocumentIntelligenceClient _docClient;
+        //private readonly DocumentIntelligenceClient _docClient;
         private readonly IBaseRepository<Entity.ResumeResult> _repository;
+        private readonly IConfiguration _config;
+        
         public PdfExtractionManager(IConfiguration cfg, IBaseRepository<Entity.ResumeResult> repository)
         {
             _minlen=int.TryParse(cfg["Extraction:MinAcceptableLength"],out var value)?value:400;
             _repository = repository;
-            _docClient = new DocumentIntelligenceClient(
-                new Uri(cfg["AzureDocumentIntelligence:Endpoint"]!),
-                new Azure.AzureKeyCredential(cfg["AzureDocumentIntelligence:ApiKey"]!)
-            );
+            _config = cfg;
+            
+            //  IronPDF License
+            var ironPdfKey = cfg["IronPDF:LicenseKey"];
+            if (!string.IsNullOrWhiteSpace(ironPdfKey) )
+            {
+                IronPdf.License.LicenseKey = ironPdfKey;
+                Console.WriteLine("IronPDF license loaded");
+            }
+            
+            //  IronOCR License
+            var ironOcrKey = cfg["IronOCR:LicenseKey"];
+            if (!string.IsNullOrWhiteSpace(ironOcrKey) )
+            {
+                IronOcr.License.LicenseKey = ironOcrKey;
+                Console.WriteLine("IronOCR license loaded");
+            }
+            
+            //_docClient = new DocumentIntelligenceClient(
+            //    new Uri(cfg["AzureDocumentIntelligence:Endpoint"]!),
+            //    new Azure.AzureKeyCredential(cfg["AzureDocumentIntelligence:ApiKey"]!)
+            //);
         }
        public async Task<Result> ProcessAsync(IFormFile file)
         {
@@ -37,14 +57,17 @@ namespace ResumeExtractorAPI.Managers
               try{
                 var ironPDF=new PdfDocument(tempFilePath);
                 text=ironPDF.ExtractAllText();
-              }catch(Exception)
+                Console.WriteLine($"IronPDF extracted: {text.Length} characters");
+              }catch(Exception ex)
               {
+                Console.WriteLine($"IronPDF error: {ex.Message}");
                 text=string.Empty;
               }
 
               // 3) Extract text using IronOCR
            if(string.IsNullOrWhiteSpace(text)||text.Length<_minlen)
            {
+                Console.WriteLine($"Text is empty or too short ({text.Length} chars), trying IronOCR...");
                 try
                 {
                     var ocr=new IronTesseract();
@@ -53,23 +76,30 @@ namespace ResumeExtractorAPI.Managers
                     var result=ocr.Read(input);
                     text=result.Text;
                     source="IronOCR";
+                    Console.WriteLine($"IronOCR extracted: {text.Length} characters");
                     
-                }catch(Exception)
+                }catch(Exception ex)
                 {
+                    Console.WriteLine($"IronOCR error: {ex.Message}");
                     text=string.Empty;
                 }
            }
-           //4) Azure Document Intelligence as fallback
-              file.OpenReadStream().Position=0;
-              var layoutOp=await _docClient.AnalyzeDocumentAsync(
-                Azure.WaitUntil.Completed,"prebuilt-layout",
-                BinaryData.FromStream(file.OpenReadStream()));
-                var layoutResult=layoutOp.Value;
-                var lang=layoutResult.Languages?.FirstOrDefault()?.Locale;
+        //    //4) Azure Document Intelligence as fallback
+        //       file.OpenReadStream().Position=0;
+        //       var layoutOp=await _docClient.AnalyzeDocumentAsync(
+        //         Azure.WaitUntil.Completed,"prebuilt-layout",
+        //         BinaryData.FromStream(file.OpenReadStream()));
+        //         var layoutResult=layoutOp.Value;
+                // var lang=layoutResult.Languages?.FirstOrDefault()?.Locale;
                 // 5) Map basic fields
+                if(string.IsNullOrWhiteSpace(text))
+                {
+                    Console.WriteLine("WARNING: No text extracted from PDF!");
+                }
+                
                 var resume=MapBasic(text);
                 resume.Id=Guid.NewGuid();
-                resume.Language=lang;
+                resume.Language="en";
                 resume.SelectedSource=source;
                 resume.RawText=text;
                 
@@ -84,7 +114,9 @@ namespace ResumeExtractorAPI.Managers
             try
             {
                 await _repository.AddAsync(resume);
+                
                 await _repository.SaveChangesAsync();
+                
                 return new Result
                 {
                     Success=true,
@@ -92,14 +124,14 @@ namespace ResumeExtractorAPI.Managers
                     Data=new ResumeResponse{ Id=resume.Id }
                 };
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                // Log error but continue
+                
                 return new Result
                 {
-                    Success=true,
-                    Message="Resume processed successfully",
-                    Data=new ResumeResponse{ Id=resume.Id }
+                    Success=false,
+                    Message=$"Error saving to database: {ex.Message}",
+                    Data=null
                 };
             }
             finally
@@ -118,7 +150,7 @@ namespace ResumeExtractorAPI.Managers
                 Objective=ExtractSection(text,"Objective|Summary|Profile"),
                 Skills=ExtractSkills(text),
                 Education=Helpers.EducationParser.ExtractEducation(text),
-                WorkExperience=ExtractWorkExperience(text),
+                WorkExperience=Helpers.WorkExperienceParser.ExtractWorkExperience(text),
                 Projects=ExtractProjects(text),
                 Certifications=ExtractCertifications(text),
                 Languages=ExtractLanguages(text),
@@ -129,13 +161,13 @@ namespace ResumeExtractorAPI.Managers
             if(string.IsNullOrWhiteSpace(text))
                 return null;
                 var email=Regex.Match(text,@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").Value;
-                var phone=Regex.Match(text,@"(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}").Value;
-                var LinkedIn=Regex.Match(text,@"(https?:\/\/)?(www\.)?linkedin\.com\[^/s]+\/?").Value;
-                var GitHub=Regex.Match(text,@"(https?:\/\/)?(www\.)?github\.com\[^/s]+\/?").Value;
+                var phone=Regex.Match(text,@"\+?\d[\d\s\-()]{8,}").Value;
+                var LinkedIn=Regex.Match(text,@"(https?:\/\/)?(www\.)?linkedin\.com\[^\s]+\/?").Value;
+                var GitHub=Regex.Match(text,@"(https?:\/\/)?(www\.)?github\.com\[^\s]+\/?").Value;
                 var nameLine=text.Split('\n').FirstOrDefault(l=>!string.IsNullOrWhiteSpace(l))??"Unknown";
-                
                 return new Entity.PersonalInfo
                 {
+                    Id=Guid.NewGuid(),
                     Name=nameLine.Trim(),
                     Email=string.IsNullOrWhiteSpace(email)? "unknown@example.com" : email,
                     Phone=string.IsNullOrWhiteSpace(phone)? null : phone,
@@ -169,20 +201,7 @@ namespace ResumeExtractorAPI.Managers
         return languages;
         }
         
-        private List<Entity.WorkExperience> ExtractWorkExperience(string raw)
-        {
-            var section = ExtractSection(raw, "Experience|Work Experience|Employment|Professional Experience");
-            if (string.IsNullOrWhiteSpace(section))
-                return new List<Entity.WorkExperience>();
-           var experience=section.Split('\n').Where(l=>!string.IsNullOrWhiteSpace(l))
-           .Select(l=>new Entity.WorkExperience
-           {
-               Id=Guid.NewGuid(),
-               Position=l.Trim(),
-               Responsibilities=new List<string>()
-            }).ToList();
-              return experience;
-        }
+       
         private List<Entity.Project> ExtractProjects(string raw)
         {
             var projectSection= ExtractSection(raw,"Projects|Project Experience");
